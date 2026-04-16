@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Brawl Web</title>
+<style>
+body { margin:0; font-family:Arial; background:#1a1a1a; color:white; text-align:center; }
+button { padding:10px 20px; margin:5px; font-size:16px; cursor:pointer; }
+#menu, #shop { margin-top:50px; }
+canvas { display:none; background:#2b2b2b; }
+</style>
+</head>
+<body>
+
+<h1>🔥 BRAWL WEB 🔥</h1>
+
+<div id="menu">
+    <p>🏆 Кубки: <span id="trophies">0</span></p>
+    <p>💰 Монеты: <span id="coins">0</span></p>
+    <button onclick="startGame()">Играть</button>
+    <button onclick="openShop()">Магазин</button>
+</div>
+
+<div id="shop" style="display:none;">
+    <h2>🛒 Магазин</h2>
+    <button onclick="buyCoins()">+100 монет</button><br>
+    <button onclick="backMenu()">Назад</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+let trophies = 0;
+let coins = 0;
+
+// UI
+const menu = document.getElementById("menu");
+const shop = document.getElementById("shop");
+
+function openShop(){
+    menu.style.display="none";
+    shop.style.display="block";
+}
+
+function backMenu(){
+    shop.style.display="none";
+    menu.style.display="block";
+}
+
+function buyCoins(){
+    coins += 100;
+    updateUI();
+}
+
+// GAME
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let player, bullets, enemies, ultReady=false;
+
+function startGame(){
+    menu.style.display="none";
+    canvas.style.display="block";
+
+    player = {x:300,y:300,speed:4,hp:100};
+    bullets = [];
+    enemies = [];
+
+    setInterval(spawnEnemy,1200);
+    loop();
+}
+
+// управление
+let keys = {};
+window.addEventListener("keydown", e=> keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup", e=> keys[e.key.toLowerCase()] = false);
+
+// стрельба
+canvas.addEventListener("click", e=>{
+    shoot(e.clientX,e.clientY);
+});
+
+// ульта
+window.addEventListener("keydown", e=>{
+    if(e.key.toLowerCase()==="q" && ultReady){
+        useUlt();
+    }
+});
+
+function shoot(mx,my){
+    let angle = Math.atan2(my-player.y,mx-player.x);
+    bullets.push({
+        x:player.x,y:player.y,
+        dx:Math.cos(angle)*8,
+        dy:Math.sin(angle)*8
+    });
+}
+
+function useUlt(){
+    ultReady=false;
+    for(let i=0;i<12;i++){
+        let angle = i*(Math.PI*2/12);
+        bullets.push({
+            x:player.x,y:player.y,
+            dx:Math.cos(angle)*6,
+            dy:Math.sin(angle)*6
+        });
+    }
+}
+
+// враги
+function spawnEnemy(){
+    enemies.push({
+        x:Math.random()*canvas.width,
+        y:Math.random()*canvas.height,
+        hp:3
+    });
+}
+
+function update(){
+    if(keys["w"]) player.y-=player.speed;
+    if(keys["s"]) player.y+=player.speed;
+    if(keys["a"]) player.x-=player.speed;
+    if(keys["d"]) player.x+=player.speed;
+
+    bullets.forEach((b,i)=>{
+        b.x+=b.dx;
+        b.y+=b.dy;
+    });
+
+    enemies.forEach((e,ei)=>{
+        let angle=Math.atan2(player.y-e.y,player.x-e.x);
+        e.x+=Math.cos(angle)*1.5;
+        e.y+=Math.sin(angle)*1.5;
+
+        if(Math.hypot(player.x-e.x,player.y-e.y)<25){
+            player.hp-=0.5;
+        }
+
+        bullets.forEach((b,bi)=>{
+            if(Math.hypot(b.x-e.x,b.y-e.y)<20){
+                e.hp--;
+                bullets.splice(bi,1);
+                if(e.hp<=0){
+                    enemies.splice(ei,1);
+                    trophies++;
+                    coins+=5;
+                    if(trophies%5===0) ultReady=true;
+                    updateUI();
+                }
+            }
+        });
+    });
+
+    if(player.hp<=0){
+        alert("Game Over");
+        location.reload();
+    }
+}
+
+function draw(){
+    ctx.fillStyle="#2b2b2b";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // ПЕРСОНАЖ (НЕ КРУГ!)
+    ctx.fillStyle="cyan";
+    ctx.fillRect(player.x-10,player.y-15,20,30); // тело
+    ctx.fillStyle="white";
+    ctx.fillRect(player.x-8,player.y-25,16,10); // голова
+
+    // пули
+    ctx.fillStyle="yellow";
+    bullets.forEach(b=>{
+        ctx.fillRect(b.x,b.y,4,4);
+    });
+
+    // враги
+    ctx.fillStyle="red";
+    enemies.forEach(e=>{
+        ctx.fillRect(e.x-10,e.y-10,20,20);
+    });
+
+    // UI
+    ctx.fillStyle="white";
+    ctx.fillText("HP: "+Math.floor(player.hp),20,20);
+    ctx.fillText("ULT(Q): "+(ultReady?"READY":"NO"),20,40);
+}
+
+function loop(){
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+function updateUI(){
+    document.getElementById("trophies").innerText=trophies;
+    document.getElementById("coins").innerText=coins;
+}
+</script>
+
+</body>
+</html>
